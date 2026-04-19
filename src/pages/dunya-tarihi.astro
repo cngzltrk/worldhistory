@@ -1,0 +1,445 @@
+---
+import { getCollection, render } from "astro:content";
+
+const allEvents = await getCollection("dunya-tarihi");
+
+const sorted = allEvents.sort((a, b) => {
+  if (a.data.era !== b.data.era) return a.data.era === "BCE" ? -1 : 1;
+  return a.data.era === "BCE"
+    ? b.data.year - a.data.year
+    : a.data.year - b.data.year;
+});
+
+const rendered = await Promise.all(
+  sorted.map(async (event, index) => {
+    const { Content } = await render(event);
+    return { event, Content, index };
+  })
+);
+---
+
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dünya Tarihi</title>
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      :root {
+        --bg:        #0b0905;
+        --surface:   #161209;
+        --surface2:  #1e1810;
+        --border:    #4a3d24;
+        --gold:      #c8922a;
+        --gold-dim:  #7a5818;
+        --glow:      rgba(200, 146, 42, 0.18);
+        --text:      #e6d9bc;
+        --muted:     #7a6d55;
+        --radius:    3px;
+      }
+
+      /* ── Base ──────────────────────────────────────── */
+      body {
+        background-color: var(--bg);
+        /* Subtle radial warmth in center */
+        background-image:
+          radial-gradient(ellipse 80% 60% at 50% 20%, rgba(60, 40, 10, 0.45) 0%, transparent 70%),
+          radial-gradient(ellipse 60% 40% at 50% 80%, rgba(40, 25, 5, 0.3) 0%, transparent 70%);
+        color: var(--text);
+        font-family: Georgia, "Times New Roman", serif;
+        min-height: 100vh;
+        padding: 4rem 1.5rem 8rem;
+      }
+
+      /* ── Back link ─────────────────────────────────── */
+      .back-link {
+        display: inline-block;
+        margin-bottom: 2rem;
+        font-size: 0.75rem;
+        letter-spacing: 0.1em;
+        color: var(--muted);
+        text-decoration: none;
+        transition: color 0.15s;
+      }
+      .back-link:hover { color: var(--gold); }
+
+      /* ── Page header ───────────────────────────────── */
+      .page-header {
+        text-align: center;
+        margin-bottom: 5rem;
+      }
+
+      .header-ornament {
+        display: block;
+        font-size: 1rem;
+        color: var(--gold-dim);
+        letter-spacing: 0.6em;
+        margin-bottom: 1.1rem;
+        user-select: none;
+      }
+
+      .page-header h1 {
+        font-size: clamp(1.7rem, 4vw, 3rem);
+        font-weight: 400;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--gold);
+        text-shadow: 0 0 40px rgba(200, 146, 42, 0.3);
+        line-height: 1.2;
+      }
+
+      .header-rule {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.8rem;
+        margin: 1.1rem auto 0.9rem;
+        color: var(--gold-dim);
+        font-size: 0.8rem;
+        letter-spacing: 0.3em;
+      }
+      .header-rule::before,
+      .header-rule::after {
+        content: "";
+        display: block;
+        width: 80px;
+        height: 1px;
+        background: linear-gradient(to right, transparent, var(--gold-dim));
+      }
+      .header-rule::after {
+        background: linear-gradient(to left, transparent, var(--gold-dim));
+      }
+
+      .page-header p {
+        color: var(--muted);
+        font-size: 0.85rem;
+        font-style: italic;
+        letter-spacing: 0.06em;
+      }
+
+      /* ── Timeline container ────────────────────────── */
+      .timeline {
+        position: relative;
+        max-width: 520px;
+        margin: 0 auto;
+      }
+
+      /* Vertical line — runs through the center of the node column.
+         node column starts at: year(7rem) + gap(1rem) = 8rem
+         node column width: 1.2rem → center at 8rem + 0.6rem = 8.6rem          */
+      .timeline::before {
+        content: "";
+        position: absolute;
+        left: 8.6rem;
+        top: 0;
+        bottom: 0;
+        width: 1px;
+        transform: translateX(-50%);
+        background: linear-gradient(
+          to bottom,
+          transparent 0%,
+          var(--gold-dim) 6%,
+          var(--gold-dim) 94%,
+          transparent 100%
+        );
+      }
+
+      /* ── Entry: 3-column grid ──────────────────────── */
+      /*   [year 5rem] [gap 1rem] [node 1.2rem] [gap 1rem] [title 1fr]  */
+      .entry {
+        display: grid;
+        grid-template-columns: 7rem 1.2rem 1fr;
+        column-gap: 1rem;
+        align-items: start;
+        margin-bottom: 2rem;
+      }
+
+      /* ── Year label ────────────────────────────────── */
+      .entry-year {
+        grid-column: 1;
+        text-align: right;
+        font-size: 1.1rem;
+        font-family: "Courier New", monospace;
+        letter-spacing: 0.06em;
+        color: var(--gold);
+        white-space: nowrap;
+        padding-top: 0.1rem;
+      }
+
+      /* ── Node (diamond, centered in its column) ────── */
+      .entry-node {
+        grid-column: 2;
+        display: flex;
+        justify-content: center;
+        padding-top: 0.18rem;
+      }
+
+      .entry-diamond {
+        width: 11px;
+        height: 11px;
+        flex-shrink: 0;
+        background: var(--gold);
+        transform: rotate(45deg);
+        border: 2px solid var(--bg);
+        box-shadow: 0 0 8px rgba(200, 146, 42, 0.6), 0 0 2px var(--gold);
+      }
+
+      /* ── Title button (no box) ─────────────────────── */
+      .entry-card {
+        grid-column: 3;
+        background: none;
+        border: none;
+        padding: 0;
+        cursor: pointer;
+        color: inherit;
+        font-family: inherit;
+        text-align: left;
+      }
+
+      .entry-title {
+        font-size: 0.88rem;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        line-height: 1.4;
+        color: var(--text);
+        transition: color 0.15s;
+      }
+
+      .entry-card:hover .entry-title,
+      .entry-card:focus-visible .entry-title {
+        color: var(--gold);
+        outline: none;
+      }
+
+      /* ── Hidden content store ──────────────────────── */
+      #content-store { display: none; }
+
+      /* ── Full-page detail view ─────────────────────── */
+      #modal {
+        position: fixed;
+        inset: 0;
+        z-index: 100;
+        background: var(--bg);
+        background-image:
+          radial-gradient(ellipse 80% 60% at 50% 20%, rgba(60, 40, 10, 0.45) 0%, transparent 70%);
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+      }
+      #modal[hidden] { display: none; }
+
+      #modal-backdrop { display: none; }
+
+      #modal-panel {
+        width: 100%;
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 1.5rem 2rem 4rem;
+      }
+
+      #modal-header {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border);
+        margin-bottom: 0.6rem;
+      }
+
+      #modal-title {
+        flex: 1;
+        font-size: clamp(1.1rem, 2.5vw, 1.7rem);
+        font-weight: 400;
+        letter-spacing: 0.06em;
+        color: var(--gold);
+        line-height: 1.3;
+        text-shadow: 0 0 30px rgba(200,146,42,0.25);
+      }
+
+      #modal-close {
+        flex-shrink: 0;
+        background: none;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 0.85rem;
+        padding: 0.3rem 0.8rem;
+        border-radius: 2px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        transition: color 0.15s, border-color 0.15s;
+        font-family: inherit;
+        letter-spacing: 0.05em;
+        white-space: nowrap;
+      }
+      #modal-close:hover,
+      #modal-close:focus-visible {
+        color: var(--text);
+        border-color: var(--gold-dim);
+        outline: none;
+      }
+
+      #modal-divider { display: none; }
+
+      #modal-meta {
+        flex-shrink: 0;
+        font-size: 0.75rem;
+        color: var(--muted);
+        font-style: italic;
+        letter-spacing: 0.06em;
+        margin-bottom: 1rem;
+      }
+
+      #modal-body {
+        line-height: 1.9;
+        font-size: 0.95rem;
+        color: #c8bfa8;
+      }
+      #modal-body img {
+        display: block;
+        max-width: 100%;
+        height: auto;
+        border: 1px solid var(--border);
+        margin: 1rem 0;
+      }
+      #modal-body h1, #modal-body h2 {
+        font-size: 1rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        color: var(--gold);
+        margin: 2rem 0 0.6rem;
+      }
+      #modal-body h1:first-child,
+      #modal-body h2:first-child { margin-top: 0; }
+      #modal-body p { margin-bottom: 0.9rem; }
+      #modal-body p:last-child { margin-bottom: 0; }
+      #modal-body strong { color: var(--text); }
+      #modal-body em { color: #a89880; }
+      #modal-body ul, #modal-body ol {
+        padding-left: 1.4rem;
+        margin-bottom: 0.9rem;
+      }
+      #modal-body li { margin-bottom: 0.3rem; }
+
+    </style>
+  </head>
+  <body>
+    <header class="page-header">
+      <a href="/" class="back-link">&larr; Tarih Atlası</a>
+      <span class="header-ornament">✦ &nbsp; ✦ &nbsp; ✦</span>
+      <h1>Dünya Tarihi</h1>
+      <div class="header-rule">MÖ 3500 – Bugün</div>
+      <p>Bir olaya tıklayarak ayrıntıları okuyun</p>
+    </header>
+
+    <main>
+      <div class="timeline">
+        {rendered.map(({ event, index }) => (
+          <div class="entry">
+            <div class="entry-year">
+              {event.data.era === "BCE" ? "MÖ" : "MS"} {event.data.year}
+            </div>
+            <div class="entry-node">
+              <div class="entry-diamond"></div>
+            </div>
+            <button
+              class="entry-card"
+              data-index={index}
+              aria-haspopup="dialog"
+            >
+              <div class="entry-title">{event.data.title}</div>
+            </button>
+          </div>
+        ))}
+      </div>
+    </main>
+
+    <!-- Pre-rendered markdown content -->
+    <div id="content-store">
+      {rendered.map(({ event, Content, index }) => (
+        <div
+          id={`content-${index}`}
+          data-title={event.data.title}
+          data-year={event.data.year}
+          data-era={event.data.era === "BCE" ? "MÖ" : "MS"}
+          data-region={event.data.region}
+        >
+          <Content />
+        </div>
+      ))}
+    </div>
+
+    <!-- Modal -->
+    <div id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" hidden>
+      <div id="modal-backdrop"></div>
+      <div id="modal-panel">
+        <div id="modal-header">
+          <h2 id="modal-title"></h2>
+          <button id="modal-close" aria-label="Kapat">&larr; Geri</button>
+        </div>
+        <div id="modal-divider"></div>
+        <div id="modal-meta"></div>
+        <div id="modal-body"></div>
+      </div>
+    </div>
+
+    <script>
+      const modal      = document.getElementById("modal")!;
+      const modalTitle = document.getElementById("modal-title")!;
+      const modalMeta  = document.getElementById("modal-meta")!;
+      const modalBody  = document.getElementById("modal-body")!;
+      const closeBtn   = document.getElementById("modal-close")!;
+      const store      = document.getElementById("content-store")!;
+
+      let previousFocus: HTMLElement | null = null;
+
+      function openModal(index: number) {
+        const source = store.querySelector<HTMLElement>(`#content-${index}`);
+        if (!source) return;
+        modalTitle.textContent = source.dataset.title ?? "";
+        const region = source.dataset.region && source.dataset.region !== "undefined" ? ` · ${source.dataset.region}` : "";
+        modalMeta.textContent  = `${source.dataset.year} ${source.dataset.era}${region}`;
+        modalBody.innerHTML    = source.innerHTML;
+        modal.removeAttribute("hidden");
+        document.body.style.overflow = "hidden";
+        previousFocus = document.activeElement as HTMLElement;
+        closeBtn.focus();
+      }
+
+      function closeModal() {
+        modal.setAttribute("hidden", "");
+        document.body.style.overflow = "";
+        previousFocus?.focus();
+        previousFocus = null;
+      }
+
+      document.querySelectorAll<HTMLButtonElement>(".entry-card").forEach((card) => {
+        card.addEventListener("click", () => openModal(Number(card.dataset.index)));
+      });
+
+      closeBtn.addEventListener("click", closeModal);
+      document.getElementById("modal-backdrop")!.addEventListener("click", closeModal);
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && !modal.hasAttribute("hidden")) closeModal();
+      });
+
+      modal.addEventListener("keydown", (e) => {
+        if (e.key !== "Tab" || modal.hasAttribute("hidden")) return;
+        const focusable = Array.from(
+          modal.querySelectorAll<HTMLElement>(
+            'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+          )
+        ).filter((el) => !el.hasAttribute("disabled"));
+        if (!focusable.length) return;
+        const first = focusable[0], last = focusable[focusable.length - 1];
+        if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+      });
+    </script>
+  </body>
+</html>
