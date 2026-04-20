@@ -287,9 +287,8 @@ const rendered = await Promise.all(
 
       #modal-meta {
         flex-shrink: 0;
-        font-size: 0.75rem;
+        font-size: 0.95rem;
         color: var(--muted);
-        font-style: italic;
         letter-spacing: 0.06em;
         margin-bottom: 1rem;
       }
@@ -301,10 +300,11 @@ const rendered = await Promise.all(
       }
       #modal-body img {
         display: block;
+        width: 1024px;
         max-width: 100%;
         height: auto;
         border: 1px solid var(--border);
-        margin: 1rem 0;
+        margin: 1rem auto;
       }
       #modal-body h1, #modal-body h2 {
         font-size: 1rem;
@@ -403,8 +403,17 @@ const rendered = await Promise.all(
         if (!source) return;
         modalTitle.textContent = source.dataset.title ?? "";
         const region = source.dataset.region && source.dataset.region !== "undefined" ? ` · ${source.dataset.region}` : "";
-        modalMeta.textContent  = `${source.dataset.year} ${source.dataset.era}${region}`;
+        const formattedYear = Number(source.dataset.year).toLocaleString('fr-FR');
+        modalMeta.textContent  = `${source.dataset.era} ${formattedYear}${region}`;
         modalBody.innerHTML    = source.innerHTML;
+        modalBody.querySelectorAll<HTMLImageElement>('img').forEach(img => {
+          img.style.display   = 'block';
+          img.style.width     = '1024px';
+          img.style.maxWidth  = '100%';
+          img.style.height    = 'auto';
+          img.style.border    = '1px solid #4a3d24';
+          img.style.margin    = '1rem auto';
+        });
         modal.removeAttribute("hidden");
         document.body.style.overflow = "hidden";
         previousFocus = document.activeElement as HTMLElement;
